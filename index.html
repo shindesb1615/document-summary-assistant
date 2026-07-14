@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Document Summary Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEEE9;
+    --card:#F7F6F2;
+    --ink:#1B2430;
+    --ink-soft:#545B66;
+    --steel:#3D5A80;
+    --steel-dark:#2C4159;
+    --highlighter:#FFD23F;
+    --redact:#C4432B;
+    --line:#D8D6CC;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:48px 20px 80px;
+  }
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:40px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:20px;
+  }
+  header .brand{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:26px;
+    letter-spacing:-0.01em;
+  }
+  header .brand .dot{color:var(--steel);}
+  header .tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+  }
+
+  /* ---- Upload state ---- */
+  .dropzone{
+    background:var(--card);
+    border:1.5px dashed var(--line);
+    border-radius:var(--radius);
+    padding:64px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+    position:relative;
+  }
+  .dropzone.dragover{
+    border-color:var(--steel);
+    background:#F1F0EA;
+  }
+  .dropzone svg{margin-bottom:18px;}
+  .dropzone h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 8px;
+  }
+  .dropzone p{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 20px;
+  }
+  .dropzone .browse-btn{
+    display:inline-block;
+    background:var(--steel);
+    color:#fff;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    padding:10px 20px;
+    border-radius:6px;
+    border:none;
+    cursor:pointer;
+  }
+  .dropzone .browse-btn:hover{background:var(--steel-dark);}
+  .dropzone input[type=file]{display:none;}
+  .formats{
+    margin-top:22px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    letter-spacing:0.04em;
+  }
+
+  .error-banner{
+    margin-top:16px;
+    background:#FBEAE6;
+    border:1px solid var(--redact);
+    color:var(--redact);
+    font-size:13px;
+    padding:12px 16px;
+    border-radius:8px;
+    display:none;
+  }
+
+  /* ---- Processing state ---- */
+  .processing{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:56px 24px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .doc-silhouette{
+    position:relative;
+    width:120px;
+    height:150px;
+    margin:0 auto 26px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:4px;
+    box-shadow:0 6px 18px rgba(27,36,48,0.08);
+    overflow:hidden;
+  }
+  .doc-silhouette .doc-line{
+    height:6px;
+    background:var(--line);
+    border-radius:2px;
+    margin:14px 16px;
+  }
+  .doc-silhouette .doc-line:nth-child(2){width:70%;}
+  .doc-silhouette .doc-line:nth-child(3){width:85%;}
+  .doc-silhouette .doc-line:nth-child(4){width:55%;}
+  .scan-line{
+    position:absolute;
+    left:0; right:0;
+    height:3px;
+    background:var(--highlighter);
+    box-shadow:0 0 12px 2px rgba(255,210,63,0.8);
+    animation:scan 1.6s ease-in-out infinite;
+  }
+  @keyframes scan{
+    0%{ top:0%; }
+    50%{ top:96%; }
+    100%{ top:0%; }
+  }
+  .processing h2{
+    font-family:'Fraunces', serif;
+    font-size:20px;
+    margin:0 0 6px;
+  }
+  .processing .status{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--steel);
+    letter-spacing:0.04em;
+  }
+
+  /* ---- Results state ---- */
+  .results{display:none;}
+  .doc-meta{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:22px;
+    flex-wrap:wrap;
+  }
+  .badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:4px 10px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+    background:var(--card);
+  }
+  .doc-meta .filename{
+    font-weight:600;
+    font-size:15px;
+  }
+  .doc-meta .stats{
+    margin-left:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  .length-toggle{
+    display:inline-flex;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:3px;
+    margin-bottom:24px;
+  }
+  .length-toggle button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    border:none;
+    background:transparent;
+    color:var(--ink-soft);
+    padding:8px 16px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .length-toggle button.active{
+    background:var(--steel);
+    color:#fff;
+  }
+
+  .summary-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:32px;
+    margin-bottom:24px;
+  }
+  .summary-card h3{
+    font-family:'Fraunces', serif;
+    font-size:15px;
+    margin:0 0 16px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    font-weight:600;
+  }
+  .summary-text{
+    font-size:16px;
+    line-height:1.75;
+  }
+  .summary-text mark{
+    background:transparent;
+    color:var(--ink);
+    position:relative;
+    padding:0 1px;
+  }
+  .summary-text mark svg{
+    position:absolute;
+    left:-2px; right:-2px; bottom:-3px;
+    width:calc(100% + 4px);
+    height:8px;
+    z-index:-1;
+  }
+
+  .keywords{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .keywords span{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    background:#fff;
+    border:1px solid var(--line);
+    padding:5px 12px;
+    border-radius:20px;
+    color:var(--steel-dark);
+  }
+
+  .actions{
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  .actions button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    padding:10px 18px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .btn-primary{
+    background:var(--steel);
+    color:#fff;
+    border:none;
+  }
+  .btn-primary:hover{background:var(--steel-dark);}
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+  }
+  .btn-ghost:hover{border-color:var(--steel);color:var(--steel);}
+
+  details.raw-text{
+    margin-top:24px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  details.raw-text summary{
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+  }
+  details.raw-text pre{
+    white-space:pre-wrap;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+    margin-top:10px;
+    max-height:240px;
+    overflow-y:auto;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13px;
+    line-height:1.6;
+  }
+
+  footer{
+    margin-top:56px;
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  @media (max-width:560px){
+    .wrap{padding:28px 16px 60px;}
+    header{flex-direction:column;align-items:flex-start;gap:6px;}
+    .dropzone{padding:44px 16px;}
+    .summary-card{padding:22px;}
+    .doc-meta .stats{margin-left:0; width:100%;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .scan-line{animation:none; top:50%;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Summary<span class="dot">/</span>Desk</div>
+    <div class="tag">Document → Text → Summary</div>
+  </header>
+
+  <!-- Upload -->
+  <div id="dropzone" class="dropzone">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <rect x="10" y="6" width="28" height="36" rx="2" stroke="#3D5A80" stroke-width="2"/>
+      <path d="M16 16h16M16 23h16M16 30h10" stroke="#3D5A80" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h2>Drop a document here</h2>
+    <p>PDF or scanned image (JPG, PNG) — text is extracted and condensed for you.</p>
+    <button type="button" class="browse-btn" id="browseBtn">Choose a file</button>
+    <input type="file" id="fileInput" accept=".pdf,image/png,image/jpeg,image/jpg,image/webp" />
+    <div class="formats">PDF · JPG · PNG · WEBP — processed entirely in your browser</div>
+  </div>
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Processing -->
+  <div class="processing" id="processing">
+    <div class="doc-silhouette">
+      <div class="scan-line"></div>
+      <div class="doc-line" style="margin-top:20px;"></div>
+      <div class="doc-line"></div>
+      <div class="doc-line"></div>
+      <div class="doc-line"></div>
+    </div>
+    <h2>Reading your document</h2>
+    <div class="status" id="statusText">Extracting text…</div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="doc-meta">
+      <span class="badge" id="sourceBadge">PDF</span>
+      <span class="filename" id="filenameLabel"></span>
+      <span class="stats" id="statsLabel"></span>
+    </div>
+
+    <div class="length-toggle" id="lengthToggle">
+      <button data-len="short">Short</button>
+      <button data-len="medium" class="active">Medium</button>
+      <button data-len="long">Long</button>
+    </div>
+
+    <div class="summary-card">
+      <h3>Summary</h3>
+      <div class="summary-text" id="summaryText"></div>
+    </div>
+
+    <div class="summary-card">
+      <h3>Key Terms</h3>
+      <div class="keywords" id="keywords"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="copyBtn">Copy summary</button>
+      <button class="btn-ghost" id="resetBtn">Start over</button>
+    </div>
+
+    <details class="raw-text">
+      <summary>View full extracted text</summary>
+      <pre id="rawText"></pre>
+    </details>
+  </div>
+
+  <footer>Runs client-side · No files leave your browser</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<script src="summarizer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
