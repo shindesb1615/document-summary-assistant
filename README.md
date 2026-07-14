@@ -2,7 +2,7 @@
 
 Upload a PDF or a scanned image, and get an instant, adjustable-length summary with key terms highlighted — all processed entirely in the browser, no backend, no API keys.
 
-**Live demo:** _add your deployed URL here_
+**Live demo:** 
 
 ## Features
 
